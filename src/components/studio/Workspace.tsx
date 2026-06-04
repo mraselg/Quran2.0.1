@@ -20,6 +20,7 @@ import { useHistoryStore } from "@/state/historyStore";
 import { useReflowStore } from "@/state/reflowStore";
 import { getVisiblePageId } from "@/lib/editorContext";
 import type { BuildProgress } from "@/state/reflowStore";
+import { useCloudStore } from "@/state/cloudStore";
 
 type Stage = "ui" | "ready";
 
@@ -193,7 +194,21 @@ export function Workspace() {
         return;
       }
 
-      // Ctrl+P — open PDF export (prevent browser print)
+      // Ctrl+S — Sync to Cloud
+      if (mod && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        useCloudStore.getState().syncToCloud();
+        return;
+      }
+
+      // Ctrl+E — trigger Export PDF
+      if (mod && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        document.getElementById("btn-export-pdf")?.click();
+        return;
+      }
+
+      // Ctrl+P — Prevent browser print default and trigger Export
       if (mod && e.key.toLowerCase() === "p") {
         e.preventDefault();
         document.getElementById("btn-export-pdf")?.click();
@@ -277,8 +292,10 @@ export function Workspace() {
           }
           break;
         case "e":
-          e.preventDefault();
-          useEditorStore.getState().toggleEditMode();
+          if (!mod) {
+            e.preventDefault();
+            useEditorStore.getState().toggleEditMode();
+          }
           break;
         case "g":
           e.preventDefault();
@@ -312,6 +329,30 @@ export function Workspace() {
 
     window.addEventListener("keydown", onKey);
     window.addEventListener("keyup", onKeyUp);
+
+    // Electron IPC Menu Action Listener
+    if (window.electronAPI?.onMenuAction) {
+      window.electronAPI.onMenuAction((action: string) => {
+        switch (action) {
+          case "sync":
+            useCloudStore.getState().syncToCloud();
+            break;
+          case "export-pdf":
+            document.getElementById("btn-export-pdf")?.click();
+            break;
+          case "undo":
+            useOverridesStore.temporal.getState().undo();
+            break;
+          case "redo":
+            useOverridesStore.temporal.getState().redo();
+            break;
+          case "toggle-edit":
+            useEditorStore.getState().toggleEditMode();
+            break;
+        }
+      });
+    }
+
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);

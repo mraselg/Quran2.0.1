@@ -10,4 +10,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   exportCustomPDF: (payload: any): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('export:customPDF', payload),
+
+  onMenuAction: (callback: (action: string) => void) => {
+    ipcRenderer.on('menu-action', (_event, action) => callback(action));
+  },
 });

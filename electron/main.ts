@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { handleExportPDF } from './pdfExport.js';
@@ -34,6 +34,59 @@ function createWindow(): BrowserWindow {
 
 app.whenReady().then(() => {
   const win = createWindow();
+
+  const isMac = process.platform === 'darwin';
+  const template: MenuItemConstructorOptions[] = [
+    // { role: 'appMenu' }
+    ...(isMac ? [{
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    }] as MenuItemConstructorOptions[] : []),
+    {
+      label: 'File',
+      submenu: [
+        { label: 'Save / Sync', accelerator: 'CmdOrCtrl+S', click: () => win.webContents.send('menu-action', 'sync') },
+        { label: 'Export to PDF', accelerator: 'CmdOrCtrl+E', click: () => win.webContents.send('menu-action', 'export-pdf') },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { label: 'Undo', accelerator: 'CmdOrCtrl+Z', click: () => win.webContents.send('menu-action', 'undo') },
+        { label: 'Redo', accelerator: 'Shift+CmdOrCtrl+Z', click: () => win.webContents.send('menu-action', 'redo') },
+        { type: 'separator' },
+        { label: 'Toggle Edit Mode', accelerator: 'E', click: () => win.webContents.send('menu-action', 'toggle-edit') }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 
   // IPC handlers
   ipcMain.handle('dialog:saveFile', async (_, defaultName: string) => {

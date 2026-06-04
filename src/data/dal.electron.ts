@@ -16,6 +16,8 @@ type ElectronAPI = {
   getPageRange(from: number, to: number): Promise<PageData[]>;
   getSurahPages(surahNo: number): Promise<PageData[]>;
   getTotalPages(): Promise<number>;
+  invoke(channel: string, ...args: any[]): Promise<any>;
+  onMenuAction?(callback: (action: string) => void): void;
 };
 
 declare global {

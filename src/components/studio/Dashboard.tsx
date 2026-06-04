@@ -131,7 +131,7 @@ export function Dashboard() {
           <div className="relative max-w-6xl mx-auto px-8 pt-12">
             
             {/* Hero Welcome */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-16">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-8 mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <div>
                 <h1 className="text-4xl md:text-5xl font-bold mb-3 tracking-tight flex items-center gap-3">
                   স্বাগতম <Sparkles className="w-8 h-8 text-amber-400 animate-pulse" />
@@ -167,7 +167,7 @@ export function Dashboard() {
               {/* Create New Card */}
               <button
                 onClick={handleCreateNew}
-                className="group flex flex-col items-center justify-center h-[260px] rounded-3xl bg-neutral-900/40 border border-neutral-800 hover:bg-neutral-800/60 hover:border-amber-500/50 transition-all duration-300 cursor-pointer backdrop-blur-sm"
+                className="group flex flex-col items-center justify-center h-[260px] rounded-3xl bg-neutral-900/40 border border-neutral-800 hover:bg-neutral-800/60 hover:border-amber-500/50 transition-all duration-300 cursor-pointer backdrop-blur-sm animate-in fade-in zoom-in-95 duration-500"
               >
                 <div className="w-16 h-16 rounded-full bg-neutral-800/80 group-hover:bg-amber-500 group-hover:text-neutral-950 text-neutral-400 flex items-center justify-center mb-4 transition-all duration-300 group-hover:scale-110 shadow-lg">
                   <Plus size={32} />
@@ -175,15 +175,15 @@ export function Dashboard() {
                 <span className="font-bold text-neutral-300 group-hover:text-amber-400 text-lg transition-colors">খালি ক্যানভাস</span>
               </button>
 
-              {/* Map through all templates */}
-              {templates.map((template) => {
+              {templates.map((template, idx) => {
                 const isActive = activeTemplateId === template.id;
                 return (
                   <div 
                     key={template.id} 
-                    className={`group relative flex flex-col rounded-3xl bg-neutral-900/60 border overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/60 backdrop-blur-md ${
+                    className={`group relative flex flex-col rounded-3xl bg-neutral-900/60 border overflow-hidden transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl hover:shadow-black/60 backdrop-blur-md animate-in fade-in zoom-in-95 fill-mode-backwards ${
                       isActive ? "border-amber-500/50 shadow-lg shadow-amber-500/10" : "border-neutral-800"
                     }`}
+                    style={{ animationDelay: `${(idx + 1) * 100}ms` }}
                   >
                     {/* Visual Preview Header */}
                     <div className="h-40 bg-neutral-950/80 flex items-center justify-center border-b border-neutral-800/50 relative overflow-hidden">

@@ -13,6 +13,14 @@ import { SlimFooter } from "./SlimFooter";
 import { SlimHeader } from "./SlimHeader";
 import { SurahOpenBlock } from "./SurahOpenBlock";
 import { useTemplateStore } from "@/state/templateStore";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  ContextMenuSeparator,
+  ContextMenuShortcut
+} from "@/components/ui/context-menu";
 
 import { getScale, getDisplayH, getGridTopPx, computeGridLayout } from "@/lib/templateUtils";
 
@@ -342,53 +350,55 @@ export const Artboard = memo(function Artboard({ page, zoom = 1 }: { page: PageD
   };
 
   return (
-    <div
-      id="quran-artboard"
-      ref={boardRef}
-      data-artboard="true"
-      data-page-num={page.id.replace(/^vpage-/, "")}
-      className="relative mx-auto bg-white shadow-2xl"
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={endDrag}
-      onPointerCancel={endDrag}
-      onMouseLeave={() => editMode && !dragRef.current && setHover(null)}
-      onClick={(e) => {
-        if (!editMode) return;
-        if (isDragging) return;
-        // Type Tool: selection is already handled by onPointerDown.
-        // Don't let onClick overwrite (or clear) the selection that was just set.
-        if (isTypeTool) return;
-        const t = readTarget(e);
-        setSelection(t);
-      }}
-      onDoubleClick={(e) => {
-        if (!editMode) return;
-        // Double-click: switch to Type Tool and select the specific layer clicked
-        const t = readLayerTarget(e);
-        if (t) {
-          setActiveTool("type");
-          setSelection(t);
-        }
-      }}
-      onContextMenu={(e) => {
-        if (!editMode) {
-          e.preventDefault();
-          alert("টেক্সট কপি বা এডিট করতে চাইলে উপরের 'এডিটর' ট্যাবে ক্লিক করে এডিটিং মোড চালু করুন।");
-        }
-      }}
-      style={{
-        width: tmpl.pageGeometry.displayW,
-        height: displayH,
-        backgroundImage: "var(--page-bg)",
-        backgroundSize: "100% 100%",
-        backgroundRepeat: "no-repeat",
-        backgroundColor: "#ffffff",
-        cursor: isTypeTool ? "text" : editMode ? "crosshair" : "default",
-        userSelect: editMode ? "auto" : "none",
-        WebkitUserSelect: editMode ? "auto" : "none",
-      }}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          id="quran-artboard"
+          ref={boardRef}
+          data-artboard="true"
+          data-page-num={page.id.replace(/^vpage-/, "")}
+          className="relative mx-auto bg-white shadow-2xl"
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onMouseLeave={() => editMode && !dragRef.current && setHover(null)}
+          onClick={(e) => {
+            if (!editMode) return;
+            if (isDragging) return;
+            // Type Tool: selection is already handled by onPointerDown.
+            // Don't let onClick overwrite (or clear) the selection that was just set.
+            if (isTypeTool) return;
+            const t = readTarget(e);
+            setSelection(t);
+          }}
+          onDoubleClick={(e) => {
+            if (!editMode) return;
+            // Double-click: switch to Type Tool and select the specific layer clicked
+            const t = readLayerTarget(e);
+            if (t) {
+              setActiveTool("type");
+              setSelection(t);
+            }
+          }}
+          onContextMenu={(e) => {
+            if (!editMode) {
+              e.preventDefault();
+              alert("টেক্সট কপি বা এডিট করতে চাইলে উপরের 'এডিটর' ট্যাবে ক্লিক করে এডিটিং মোড চালু করুন।");
+            }
+          }}
+          style={{
+            width: tmpl.pageGeometry.displayW,
+            height: displayH,
+            backgroundImage: "var(--page-bg)",
+            backgroundSize: "100% 100%",
+            backgroundRepeat: "no-repeat",
+            backgroundColor: "#ffffff",
+            cursor: isTypeTool ? "text" : editMode ? "crosshair" : "default",
+            userSelect: editMode ? "auto" : "none",
+            WebkitUserSelect: editMode ? "auto" : "none",
+          }}
+        >
       {/* Kariana 3-cell header (sits inside the SVG's top yellow band) */}
       <div
         style={{
@@ -577,6 +587,37 @@ export const Artboard = memo(function Artboard({ page, zoom = 1 }: { page: PageD
           </div>
         </div>
       )}
-    </div>
+        </div>
+      </ContextMenuTrigger>
+      {editMode && (
+        <ContextMenuContent className="w-64 bg-neutral-900 border-neutral-800 text-neutral-200">
+          <ContextMenuItem 
+            className="focus:bg-neutral-800 cursor-pointer"
+            onClick={() => useOverridesStore.temporal.getState().undo()}
+          >
+            Undo <ContextMenuShortcut>Ctrl+Z</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem 
+            className="focus:bg-neutral-800 cursor-pointer"
+            onClick={() => useOverridesStore.temporal.getState().redo()}
+          >
+            Redo <ContextMenuShortcut>Ctrl+Shift+Z</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuSeparator className="bg-neutral-800" />
+          <ContextMenuItem 
+            className="focus:bg-neutral-800 cursor-pointer"
+            onClick={() => useEditorStore.getState().setActiveTool("type")}
+          >
+            Text Tool (টাইপ) <ContextMenuShortcut>T</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem 
+            className="focus:bg-neutral-800 cursor-pointer"
+            onClick={() => useEditorStore.getState().setActiveTool("select")}
+          >
+            Select Tool (সিলেক্ট) <ContextMenuShortcut>V</ContextMenuShortcut>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
   );
 });
