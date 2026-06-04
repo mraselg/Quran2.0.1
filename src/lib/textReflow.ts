@@ -601,6 +601,168 @@ export function collapseLineBreakBackward(opts: CollapseBackwardOptions): {
   return { merged: true, crossesPage: prevPage.id !== startPageId };
 }
 
+export async function backFillFromAsync(opts: BackFillOptions): Promise<void> {
+  const {
+    startPageId, startRowIndex, layer, allPages, localMap,
+    patchLocal, layerKeyFn, fontFamily, fontSize, availableWidth, surahPageIds,
+  } = opts;
+
+  const targetPages = surahPageIds
+    ? allPages.filter((p) => surahPageIds.includes(p.id))
+    : allPages;
+  const startPageIdx = targetPages.findIndex((p) => p.id === startPageId);
+  if (startPageIdx === -1) return;
+
+  const { useReflowStore } = await import("@/state/reflowStore");
+  useReflowStore.getState().setIsReflowing(true);
+
+  try {
+    const textCache = new Map<string, string>();
+    const readText = (pid: string, ri: number, pageObj: any): string => {
+      const lk = layerKeyFn(pid, ri, layer);
+      if (textCache.has(lk)) return textCache.get(lk)!;
+      return getEffectiveText(pid, ri, layer, getDomSlots(pageObj), localMap, layerKeyFn);
+    };
+    const writeText = (pid: string, ri: number, text: string) => {
+      const lk = layerKeyFn(pid, ri, layer);
+      textCache.set(lk, text);
+      patchLocal(lk, { text });
+    };
+
+    let pi = startPageIdx;
+    let ri = startRowIndex;
+    const maxIterations = targetPages.length * 50 + 100;
+    let iter = 0;
+
+    while (iter++ < maxIterations) {
+      if (iter % PAGES_PER_CHUNK === 0) {
+        await new Promise<void>((r) => setTimeout(r, 0));
+      }
+
+      const curPage = targetPages[pi];
+      if (!curPage) break;
+
+      const nextRef = findNextValidRow(pi, ri, targetPages, layer);
+      if (!nextRef) break;
+      const { pi: nPi, ri: nRi } = nextRef;
+      const nextPage = targetPages[nPi]!;
+
+      const curText = readText(curPage.id, ri, curPage).trim();
+      const nextText = readText(nextPage.id, nRi, nextPage).trim();
+
+      if (nextText === "") {
+        pi = nPi;
+        ri = nRi;
+        continue;
+      }
+
+      const combined = curText ? curText + " " + nextText : nextText;
+      const { fits, overflow } = splitToFitAware(
+        combined, availableWidth, fontFamily, fontSize, layer, curPage.id, ri, localMap, layerKeyFn
+      );
+
+      if (fits === curText) break;
+
+      writeText(curPage.id, ri, fits);
+      writeText(nextPage.id, nRi, overflow.trim());
+
+      if (overflow.trim() === "") {
+        pi = nPi;
+        ri = nRi;
+        continue;
+      }
+      break;
+    }
+  } finally {
+    useReflowStore.getState().setIsReflowing(false);
+  }
+}
+
+export function planBackFill(opts: BackFillOptions): CascadePlan {
+  const {
+    startPageId, startRowIndex, layer, allPages, localMap,
+    layerKeyFn, fontFamily, fontSize, availableWidth, surahPageIds,
+  } = opts;
+
+  const targetPages = surahPageIds
+    ? allPages.filter((p) => surahPageIds.includes(p.id))
+    : allPages;
+  const startPageIdx = targetPages.findIndex((p) => p.id === startPageId);
+  if (startPageIdx === -1) {
+    return { rowUpdates: [], crossesPage: false, crossesSurah: false, affectedPages: 0, tailOverflow: "" };
+  }
+
+  const textCache = new Map<string, string>();
+  const affectedPageIds = new Set<string>([startPageId]);
+  const updates: CascadeRowUpdate[] = [];
+
+  const readText = (pid: string, ri: number, pageObj: any): string => {
+    const lk = layerKeyFn(pid, ri, layer);
+    if (textCache.has(lk)) return textCache.get(lk)!;
+    return getEffectiveText(pid, ri, layer, getDomSlots(pageObj), localMap, layerKeyFn);
+  };
+  const writeText = (pid: string, ri: number, text: string) => {
+    const lk = layerKeyFn(pid, ri, layer);
+    textCache.set(lk, text);
+    updates.push({ pageId: pid, rowIndex: ri, layer, text });
+    affectedPageIds.add(pid);
+  };
+
+  let pi = startPageIdx;
+  let ri = startRowIndex;
+  let iter = 0;
+
+  while (iter++ < 5000) { // arbitrary safe limit for synchronous dry-run
+    const curPage = targetPages[pi];
+    if (!curPage) break;
+    const nextRef = findNextValidRow(pi, ri, targetPages, layer);
+    if (!nextRef) break;
+    const { pi: nPi, ri: nRi } = nextRef;
+    const nextPage = targetPages[nPi]!;
+
+    const curText = readText(curPage.id, ri, curPage).trim();
+    const nextText = readText(nextPage.id, nRi, nextPage).trim();
+
+    if (nextText === "") {
+      pi = nPi;
+      ri = nRi;
+      continue;
+    }
+
+    const combined = curText ? curText + " " + nextText : nextText;
+    const { fits, overflow } = splitToFitAware(
+      combined, availableWidth, fontFamily, fontSize, layer, curPage.id, ri, localMap, layerKeyFn
+    );
+
+    if (fits === curText) break;
+
+    writeText(curPage.id, ri, fits);
+    writeText(nextPage.id, nRi, overflow.trim());
+
+    if (overflow.trim() === "") {
+      pi = nPi;
+      ri = nRi;
+      continue;
+    }
+    break;
+  }
+
+  const crossesPage = Array.from(affectedPageIds).some((pid) => pid !== startPageId);
+  let crossesSurah = false;
+  if (surahPageIds && surahPageIds.length > 0) {
+    crossesSurah = Array.from(affectedPageIds).some((pid) => !surahPageIds.includes(pid));
+  }
+
+  return {
+    rowUpdates: updates,
+    crossesPage,
+    crossesSurah,
+    affectedPages: affectedPageIds.size,
+    tailOverflow: "",
+  };
+}
+
+
 // Feature 1 additions
 export async function pullUpFromNextFrame(
   frameKey: string,
@@ -1017,7 +1179,7 @@ export function reflowLayerText(opts: ReflowLayerTextOptions): ReflowLayerTextRe
 
   // No overflow → try a back-fill if there is slack.
   if (hasFreeSpaceAware(currentText, availableWidth, fontFamily, fontSize, layer, pageId, rowIndex, localMap, _layerKeyFn)) {
-    backFillFrom({
+    const plan = planBackFill({
       startPageId: pageId,
       startRowIndex: rowIndex,
       layer,
@@ -1030,7 +1192,42 @@ export function reflowLayerText(opts: ReflowLayerTextOptions): ReflowLayerTextRe
       availableWidth,
       surahPageIds,
     });
-    return { ...emptyResult, cascaded: true, affectedPages: 1 };
+
+    const apply = () => {
+      void backFillFromAsync({
+        startPageId: pageId,
+        startRowIndex: rowIndex,
+        layer,
+        allPages: scopedPages,
+        localMap: useOverridesStore.getState().local,
+        patchLocal,
+        layerKeyFn: _layerKeyFn,
+        fontFamily,
+        fontSize,
+        availableWidth,
+        surahPageIds,
+      });
+    };
+
+    if (plan.crossesPage || plan.crossesSurah) {
+      editorState.setPendingReflow({
+        crossesPage: plan.crossesPage,
+        crossesSurah: plan.crossesSurah,
+        affectedPages: plan.affectedPages,
+        confirm: apply,
+      });
+      return {
+        ...emptyResult,
+        cascaded: true,
+        crossesPage: plan.crossesPage,
+        crossesSurah: plan.crossesSurah,
+        affectedPages: plan.affectedPages,
+        rowUpdates: plan.rowUpdates.length,
+      };
+    }
+
+    apply();
+    return { ...emptyResult, cascaded: true, affectedPages: plan.affectedPages, rowUpdates: plan.rowUpdates.length };
   }
 
   return emptyResult;

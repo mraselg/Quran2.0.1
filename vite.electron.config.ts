@@ -24,7 +24,7 @@ export default defineConfig({
         '@pdf-lib/fontkit'
       ],
       output: {
-        entryFileNames: '[name].js',
+        entryFileNames: '[name].cjs',
       }
     },
   },

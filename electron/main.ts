@@ -44,6 +44,25 @@ app.whenReady().then(() => {
     return filePath;
   });
 
+  ipcMain.handle('dialog:saveImage', async (_, defaultName: string) => {
+    const { filePath } = await dialog.showSaveDialog(win, {
+      defaultPath: defaultName,
+      filters: [{ name: 'PNG Image', extensions: ['png'] }],
+    });
+    return filePath;
+  });
+
+  ipcMain.handle('saveBuffer', async (_, payload: { filePath: string; buffer: ArrayBuffer }) => {
+    try {
+      const fs = (await import('fs')).default;
+      fs.writeFileSync(payload.filePath, Buffer.from(payload.buffer));
+      return { success: true };
+    } catch (e: any) {
+      console.error('[electron] failed to save buffer', e);
+      return { success: false, error: e.message };
+    }
+  });
+
   ipcMain.handle('export:printToPDF', async (_, savePath: string) => {
     return handleExportPDF(win, savePath);
   });

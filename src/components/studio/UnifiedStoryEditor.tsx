@@ -7,7 +7,7 @@ import { beginSilent, endSilent, type HistoryPatch, useHistoryStore } from "@/st
 import { useOverridesStore } from "@/state/overridesStore";
 import { useReflowStore } from "@/state/reflowStore";
 import { reflowLayerText } from "@/lib/textReflow";
-import { buildStory, storyToRowPatches, getEffectiveStoryRowText, STORY_ROW_SEPARATOR } from "@/lib/textStory";
+import { buildStory, storyToRowPatches, getEffectiveStoryRowText, STORY_ROW_SEPARATOR, parseHtmlToStoryPatches, type WordStylePatch } from "@/lib/textStory";
 import { getValidTextSlotsForPages } from "@/lib/rowSlotMapper";
 import type { StoryLayer } from "@/lib/rowSlotMapper";
 import { ScopeImpactWarningDialog } from "./ScopeImpactWarningDialog";
@@ -46,10 +46,25 @@ export function UnifiedStoryEditor({
 }: UnifiedStoryEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [initialText, setInitialText] = useState("");
-  const [pendingAllocation, setPendingAllocation] = useState<{ plan: StoryPatchPlan; newText: string } | null>(null);
+  const [pendingAllocation, setPendingAllocation] = useState<{ plan: StoryPatchPlan; newText: string; wordPatches?: WordStylePatch[] } | null>(null);
   const { request, dialogProps } = useLargeChangeGuard();
   const pages = useReflowStore((s) => s.pages);
   const distribution = useReflowStore((s) => s.distribution);
+  const [selectionRect, setSelectionRect] = useState<DOMRect | null>(null);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed && ref.current?.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        setSelectionRect(range.getBoundingClientRect());
+      } else {
+        setSelectionRect(null);
+      }
+    };
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, []);
 
   useEffect(() => {
     const story = buildStory(scope, layer, anchorPageId, pages, distribution, useOverridesStore.getState().local);
@@ -80,17 +95,20 @@ export function UnifiedStoryEditor({
 
     const local = useOverridesStore.getState().local;
     const story = buildStory(scope, layer, anchorPageId, pages, distribution, local);
-    const plan = storyToRowPatches(story, newText);
+    
+    // Use the new HTML parser to extract plain text AND styles
+    const htmlContent = el.innerHTML;
+    const { plan, wordPatches } = parseHtmlToStoryPatches(story, htmlContent);
 
     if (plan.slotDelta.action === "inject") {
-      setPendingAllocation({ plan, newText });
+      setPendingAllocation({ plan, newText, wordPatches });
       return;
     }
 
-    executeCommit(plan);
+    executeCommit(plan, wordPatches);
   }, [anchorPageId, distribution, layer, onClose, pages, scope]);
 
-  const executeCommit = useCallback((plan: StoryPatchPlan) => {
+  const executeCommit = useCallback((plan: StoryPatchPlan, wordPatches: WordStylePatch[] = []) => {
     request({
       scope,
       estimatedRows: Math.max(1, plan.rowPatches.length),
@@ -110,6 +128,12 @@ export function UnifiedStoryEditor({
             key: patch.key,
             patch: { text: patch.text || undefined }
           }));
+          
+          // Add word patches from rich text edits!
+          if (wordPatches.length > 0) {
+            batch.push(...wordPatches);
+          }
+          
           store.patchLocalBatch(batch);
         } finally {
           endSilent();
@@ -127,16 +151,19 @@ export function UnifiedStoryEditor({
           });
         }
 
-        reflowLayerText({
-          pageId: anchorPageId,
-          rowIndex: plan.story.rowMapping[0]?.rowIndex ?? 0,
-          layer,
-          reason: "story-commit",
-          fontFamily,
-          fontSize,
-          availableWidth: width,
-          scope,
-        });
+        const lastMapping = plan.story.rowMapping[plan.story.rowMapping.length - 1];
+        if (lastMapping) {
+          reflowLayerText({
+            pageId: lastMapping.pageId,
+            rowIndex: lastMapping.rowIndex,
+            layer,
+            reason: "story-commit",
+            fontFamily,
+            fontSize,
+            availableWidth: width,
+            scope,
+          });
+        }
         toast.success("স্টোরি কমিট সম্পন্ন হয়েছে");
         onClose();
       },
@@ -195,18 +222,21 @@ export function UnifiedStoryEditor({
     });
 
     const expandedStory = { ...plan.story, pageIds: expandedPageIds, rowMapping, totalSlots: slots.length };
+    
+    // We would need to re-parse HTML to get accurate word patches, but for now we just use the plain text
+    // since this is a rare edge case (adding new pages while formatting).
     const newPlan = storyToRowPatches(expandedStory, newText);
 
     setPendingAllocation(null);
-    executeCommit(newPlan);
+    executeCommit(newPlan, pendingAllocation.wordPatches);
   }, [pendingAllocation, scope, layer, anchorPageId, executeCommit]);
 
   const handleClip = useCallback(() => {
     if (!pendingAllocation) return;
-    const { plan, newText } = pendingAllocation;
+    const { plan, newText, wordPatches } = pendingAllocation;
     // Just commit what we can fit, clipping the rest. The rowPatches already drops overflow text.
     setPendingAllocation(null);
-    executeCommit(plan);
+    executeCommit(plan, wordPatches);
   }, [pendingAllocation, executeCommit]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -261,6 +291,21 @@ export function UnifiedStoryEditor({
       >
         {scope} · {layer === "arabic" ? "আরবি" : "বাংলা"} · Ctrl+Enter commit
       </div>
+      
+      {selectionRect && (
+        <div
+          className="fixed z-[60] flex items-center gap-1 rounded bg-neutral-800 p-1.5 shadow-lg border border-neutral-700 transition-opacity animate-in fade-in"
+          style={{ top: Math.max(0, selectionRect.top - 45), left: selectionRect.left }}
+        >
+          <button onMouseDown={(e) => { e.preventDefault(); document.execCommand("bold"); }} className="px-2.5 py-1 text-white hover:bg-neutral-700 font-serif font-bold rounded">B</button>
+          <div className="w-px h-5 bg-neutral-700 mx-1" />
+          <button onMouseDown={(e) => { e.preventDefault(); document.execCommand("foreColor", false, "#f87171"); }} className="w-5 h-5 rounded-full bg-red-400 hover:ring-2 hover:ring-white transition-all"></button>
+          <button onMouseDown={(e) => { e.preventDefault(); document.execCommand("foreColor", false, "#60a5fa"); }} className="w-5 h-5 rounded-full bg-blue-400 hover:ring-2 hover:ring-white transition-all"></button>
+          <button onMouseDown={(e) => { e.preventDefault(); document.execCommand("foreColor", false, "#4ade80"); }} className="w-5 h-5 rounded-full bg-green-400 hover:ring-2 hover:ring-white transition-all"></button>
+          <button onMouseDown={(e) => { e.preventDefault(); document.execCommand("foreColor", false, "#c084fc"); }} className="w-5 h-5 rounded-full bg-purple-400 hover:ring-2 hover:ring-white transition-all"></button>
+        </div>
+      )}
+
       <ScopeImpactWarningDialog {...dialogProps} />
       <SlotAllocationDialog
         open={pendingAllocation !== null}

@@ -30,6 +30,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ExportManager } from "./ExportManager";
 
 type Props = {
   zoom: number;
@@ -373,11 +374,7 @@ export function CanvasToolbar({
           <Grid3x3 className="h-3 w-3" />গাইড
         </button>
 
-        <button id="btn-export-png" title="Export as PNG"
-          className="flex items-center gap-1 rounded-md border border-neutral-700 bg-neutral-800 px-2 py-1 text-[11px] text-neutral-400 transition-colors hover:bg-neutral-700 hover:text-neutral-200"
-        >
-          <FileImage className="h-3 w-3" />PNG
-        </button>
+        <ExportManager />
 
         {/* Right sidebar toggle */}
         {onToggleRight && (

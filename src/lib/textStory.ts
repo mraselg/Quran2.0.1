@@ -109,6 +109,8 @@ export function buildStory(
   };
 }
 
+import DOMPurify from 'dompurify';
+
 export function storyToRowPatches(story: TextStory, newPlainText: string): StoryPatchPlan {
   const nextRows = normalizeStoryRows(newPlainText);
   const slotDelta = computeSlotDelta(story.totalSlots, nextRows.length);
@@ -128,4 +130,91 @@ export function storyToRowPatches(story: TextStory, newPlainText: string): Story
   });
 
   return { story, rowPatches, slotDelta };
+}
+
+export type WordStylePatch = {
+  key: string;
+  patch: {
+    color?: string;
+    fontWeight?: string | number;
+  };
+};
+
+export function parseHtmlToStoryPatches(story: TextStory, html: string): { plan: StoryPatchPlan; wordPatches: WordStylePatch[] } {
+  // 1. Sanitize HTML
+  const cleanHtml = DOMPurify.sanitize(html, { ALLOWED_TAGS: ['b', 'strong', 'span', 'font', 'div', 'br', 'p'], ALLOWED_ATTR: ['style', 'color'] });
+  
+  // 2. Parse into DOM
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(cleanHtml, 'text/html');
+  
+  let plainText = "";
+  const wordPatches: WordStylePatch[] = [];
+  
+  // We need to map global string index to row -> wordIndex
+  const recordWordStyle = (globalStart: number, textSpan: string, color?: string, weight?: string) => {
+    if (!color && !weight) return;
+    
+    // Iterate through characters of the span
+    for (let i = 0; i < textSpan.length; i++) {
+      const charGlobalIndex = globalStart + i;
+      // Skip whitespace
+      if (textSpan[i].trim() === "") continue;
+      
+      // Find which row this character falls into
+      const rowMap = story.rowMapping.find(m => charGlobalIndex >= m.start && charGlobalIndex < m.end);
+      if (rowMap) {
+        // Find which word index inside this row
+        const rowLocalOffset = charGlobalIndex - rowMap.start;
+        const rowTextBeforeChar = rowMap.text.substring(0, rowLocalOffset);
+        const wordIndex = rowTextBeforeChar.split(/\s+/).length - 1;
+        
+        // Generate the key
+        const key = `word:${rowMap.pageId}:${rowMap.rowIndex}:${wordIndex}`;
+        
+        // Add to patches if not already there
+        let existing = wordPatches.find(p => p.key === key);
+        if (!existing) {
+          existing = { key, patch: {} };
+          wordPatches.push(existing);
+        }
+        if (color) existing.patch.color = color;
+        if (weight) existing.patch.fontWeight = weight;
+      }
+    }
+  };
+
+  const walk = (node: Node, currentColor?: string, currentWeight?: string) => {
+    let color = currentColor;
+    let weight = currentWeight;
+
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as HTMLElement;
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'b' || tag === 'strong') weight = 'bold';
+      if (el.style && el.style.color) color = el.style.color;
+      if (el.getAttribute('color')) color = el.getAttribute('color')!;
+      
+      if (tag === 'div' || tag === 'p' || tag === 'br') {
+        if (plainText.length > 0 && !plainText.endsWith('\n')) {
+          plainText += '\n';
+        }
+      }
+    }
+
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent || "";
+      const currentGlobalStart = plainText.length;
+      plainText += text;
+      
+      recordWordStyle(currentGlobalStart, text, color, weight);
+    }
+
+    node.childNodes.forEach(child => walk(child, color, weight));
+  };
+  
+  walk(doc.body);
+  
+  const plan = storyToRowPatches(story, plainText);
+  return { plan, wordPatches };
 }

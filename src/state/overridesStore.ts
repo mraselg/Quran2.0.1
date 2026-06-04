@@ -33,6 +33,10 @@ export type LocalOverride = {
   text?: string;
   /** Per-element color (used by word-level overrides; CSS color string) */
   color?: string;
+  /** Font weight for bold text */
+  fontWeight?: string | number;
+  /** Custom font family override */
+  fontFamily?: string;
   /** "point" = InDesign Point Text (nowrap, cascade to next row) [DEFAULT]
    *  "area"  = InDesign Area Text (wraps within row bounds, no cascade) */
   textMode?: "point" | "area";

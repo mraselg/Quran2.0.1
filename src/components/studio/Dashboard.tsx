@@ -1,11 +1,33 @@
+import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTemplateStore } from "@/state/templateStore";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutTemplate, Palette, ArrowRight, Settings2, Home, FolderOpen, Search, Sparkles, Bell, User, Clock } from "lucide-react";
+import { Plus, LayoutTemplate, Palette, ArrowRight, Settings2, Home, FolderOpen, Search, Sparkles, Bell, User, Clock, LogOut } from "lucide-react";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import { supabase } from "@/lib/supabaseClient";
 
 export function Dashboard() {
   const navigate = useNavigate();
   const { templates, activeTemplateId, setActiveTemplate } = useTemplateStore();
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const handleCreateNew = () => {
     navigate({ to: "/template-builder" });
@@ -71,11 +93,30 @@ export function Dashboard() {
               <Bell className="w-5 h-5" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-neutral-950"></span>
             </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg cursor-pointer">
-              <User className="w-4 h-4 text-white" />
-            </div>
+            {user ? (
+              <div className="flex items-center gap-3 bg-neutral-900 border border-neutral-800 pl-3 pr-1 py-1 rounded-full">
+                <span className="text-xs text-neutral-400 font-sans truncate max-w-[120px]">{user.email}</span>
+                <button 
+                  onClick={handleLogout}
+                  className="w-7 h-7 rounded-full bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white flex items-center justify-center transition-all"
+                  title="লগআউট"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div 
+                onClick={() => setIsAuthOpen(true)}
+                className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center shadow-lg cursor-pointer hover:scale-105 transition-transform"
+                title="লগইন করুন"
+              >
+                <User className="w-4 h-4 text-white" />
+              </div>
+            )}
           </div>
         </header>
+
+        <AuthDialog open={isAuthOpen} onOpenChange={setIsAuthOpen} />
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto relative z-10 pb-20">

@@ -126,6 +126,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 import { ModalProvider } from "@/context/ModalContext";
+import "@/state/cloudStore"; // Initialize cloud sync listeners
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
