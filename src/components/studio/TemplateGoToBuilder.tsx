@@ -3,18 +3,22 @@ import { useOverridesStore } from "@/state/overridesStore";
 import { Button } from "@/components/ui/button";
 import { LayoutTemplate, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useModal } from "@/context/ModalContext";
 
 export function TemplateGoToBuilder() {
   const navigate = useNavigate();
   const hasLocalOverrides = useOverridesStore((s) => Object.keys(s.local).length > 0);
+  const { showConfirm } = useModal();
 
-  const handleGoToBuilder = () => {
+  const handleGoToBuilder = async () => {
     if (hasLocalOverrides) {
-      // Basic native confirm for now. Later we can do a fancy dialog.
-      const confirm = window.confirm(
-        "আপনার চলমান কিছু কাজ রয়েছে (লোকাল ওভাররাইড)। আপনি কি এগুলো রেখেই টেমপ্লেট বিল্ডারে যেতে চান? (এতে আপনার ওভাররাইডগুলো হারাতে পারে অথবা লেআউট পরিবর্তন হতে পারে)"
-      );
-      if (!confirm) return;
+      const confirmed = await showConfirm({
+        title: "ওভাররাইড সতর্কতা",
+        message: "আপনার চলমান কিছু কাজ রয়েছে (লোকাল ওভাররাইড)। আপনি কি এগুলো রেখেই টেমপ্লেট বিল্ডারে যেতে চান? (এতে আপনার ওভাররাইডগুলো হারাতে পারে অথবা লেআউট পরিবর্তন হতে পারে)",
+        confirmText: "হ্যাঁ, যান",
+        cancelText: "না, বাতিল করুন"
+      });
+      if (!confirmed) return;
     }
     navigate({ to: "/template-builder" });
   };

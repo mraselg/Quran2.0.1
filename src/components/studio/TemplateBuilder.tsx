@@ -127,7 +127,7 @@ export function TemplateBuilder() {
           </Button>
           <Button
             variant="destructive"
-            disabled={isBuiltIn}
+            disabled={isBuiltIn || undefined}
             onClick={async () => {
               const confirmed = await showConfirm({
                 title: "টেমপ্লেট মুছুন",
@@ -168,7 +168,7 @@ export function TemplateBuilder() {
                 <Input
                   value={activeTemplate.name}
                   onChange={(e) => applyChange(t => { t.name = e.target.value; })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               <div className="grid gap-2">
@@ -176,7 +176,7 @@ export function TemplateBuilder() {
                 <Input
                   value={activeTemplate.description ?? ""}
                   onChange={(e) => applyChange(t => { t.description = e.target.value; })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
             </CardContent>
@@ -197,7 +197,7 @@ export function TemplateBuilder() {
                   type="number"
                   value={activeTemplate.linesPerPage}
                   onChange={(e) => handleLinesPerPageChange(parseInt(e.target.value, 10))}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -207,7 +207,7 @@ export function TemplateBuilder() {
                     type="number"
                     value={activeTemplate.pageGeometry.displayW}
                     onChange={(e) => applyChange(t => { t.pageGeometry.displayW = parseFloat(e.target.value); })}
-                    disabled={isBuiltIn}
+                    disabled={isBuiltIn || undefined}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -216,7 +216,7 @@ export function TemplateBuilder() {
                     type="number"
                     value={activeTemplate.pageGeometry.sidePadPx}
                     onChange={(e) => applyChange(t => { t.pageGeometry.sidePadPx = parseFloat(e.target.value); })}
-                    disabled={isBuiltIn}
+                    disabled={isBuiltIn || undefined}
                   />
                 </div>
               </div>
@@ -242,7 +242,7 @@ export function TemplateBuilder() {
                     t.surahOpen.headerSpan = span;
                     t.surahOpen.startAt = span + 1;
                   })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               <div className="grid gap-2">
@@ -252,7 +252,7 @@ export function TemplateBuilder() {
                   dir="rtl"
                   value={activeTemplate.surahOpen.bismillahArabic}
                   onChange={(e) => applyChange(t => { t.surahOpen.bismillahArabic = e.target.value; })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               <div className="grid gap-2">
@@ -260,7 +260,7 @@ export function TemplateBuilder() {
                 <Input
                   value={activeTemplate.surahOpen.bismillahBangla}
                   onChange={(e) => applyChange(t => { t.surahOpen.bismillahBangla = e.target.value; })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
             </CardContent>
@@ -343,7 +343,7 @@ export function TemplateBuilder() {
                     onChange={(e) => applyChange(t => {
                       t.printConfig = { ...(t.printConfig ?? { colorProfile: "RGB" }), bleedMarginMm: +e.target.value };
                     })}
-                    disabled={isBuiltIn}
+                    disabled={isBuiltIn || undefined}
                     className="flex-1"
                   />
                   <span className="text-sm w-12 text-right">
@@ -365,7 +365,7 @@ export function TemplateBuilder() {
                         onChange={() => applyChange(t => {
                           t.printConfig = { ...(t.printConfig ?? { bleedMarginMm: 0 }), colorProfile: profile };
                         })}
-                        disabled={isBuiltIn}
+                        disabled={isBuiltIn || undefined}
                       />
                       <span className="text-sm">{profile}</span>
                     </label>
@@ -395,14 +395,14 @@ export function TemplateBuilder() {
                   <Input type="number" min={20} max={100}
                     value={activeTemplate.typography.arabicFontPx}
                     onChange={(e) => applyChange(t => { t.typography.arabicFontPx = +e.target.value; })}
-                    disabled={isBuiltIn} />
+                    disabled={isBuiltIn || undefined} />
                 </div>
                 <div>
                   <Label>বাংলা ফন্ট সাইজ (px)</Label>
                   <Input type="number" min={8} max={40}
                     value={activeTemplate.typography.banglaFontPx}
                     onChange={(e) => applyChange(t => { t.typography.banglaFontPx = +e.target.value; })}
-                    disabled={isBuiltIn} />
+                    disabled={isBuiltIn || undefined} />
                 </div>
               </div>
               {/* Symbol font size */}
@@ -411,7 +411,7 @@ export function TemplateBuilder() {
                 <Input type="number" min={10} max={60}
                   value={activeTemplate.typography.symbolFontPx}
                   onChange={(e) => applyChange(t => { t.typography.symbolFontPx = +e.target.value; })}
-                  disabled={isBuiltIn} />
+                  disabled={isBuiltIn || undefined} />
               </div>
               {/* Y offsets */}
               <div className="grid grid-cols-3 gap-3">
@@ -425,7 +425,7 @@ export function TemplateBuilder() {
                     <Input type="number" min={-50} max={50}
                       value={activeTemplate.typography[field] ?? 0}
                       onChange={(e) => applyChange(t => { t.typography[field] = +e.target.value; })}
-                      disabled={isBuiltIn} />
+                      disabled={isBuiltIn || undefined} />
                   </div>
                 ))}
               </div>
@@ -449,12 +449,12 @@ export function TemplateBuilder() {
                     onClick={() => !isBuiltIn && ALL_RULE_IDS.forEach(id =>
                       applyChange(t => { t.tajweedConfig = t.tajweedConfig ?? {}; t.tajweedConfig[id] = { ...(t.tajweedConfig[id] ?? { color: DEFAULT_RULE_COLORS[id]! }), enabled: true }; })
                     )}
-                    disabled={isBuiltIn}>সব চালু</Button>
+                    disabled={isBuiltIn || undefined}>সব চালু</Button>
                   <Button size="sm" variant="outline"
                     onClick={() => !isBuiltIn && ALL_RULE_IDS.forEach(id =>
                       applyChange(t => { t.tajweedConfig = t.tajweedConfig ?? {}; t.tajweedConfig[id] = { ...(t.tajweedConfig[id] ?? { color: DEFAULT_RULE_COLORS[id]! }), enabled: false }; })
                     )}
-                    disabled={isBuiltIn}>সব বন্ধ</Button>
+                    disabled={isBuiltIn || undefined}>সব বন্ধ</Button>
                 </div>
               </div>
 
@@ -473,7 +473,7 @@ export function TemplateBuilder() {
                           t.tajweedConfig = t.tajweedConfig ?? {};
                           t.tajweedConfig[id] = { ...(t.tajweedConfig[id] ?? { color }), enabled: on };
                         })}
-                        disabled={isBuiltIn}
+                        disabled={isBuiltIn || undefined}
                       />
                       {/* Rule name */}
                       <span className="flex-1 text-xs" style={{ color: isOn ? color : "#6b7280" }}>
@@ -487,7 +487,7 @@ export function TemplateBuilder() {
                           t.tajweedConfig = t.tajweedConfig ?? {};
                           t.tajweedConfig[id] = { ...(t.tajweedConfig[id] ?? { enabled: isOn }), color: e.target.value };
                         })}
-                        disabled={isBuiltIn || !isOn}
+                        disabled={isBuiltIn || !isOn || undefined}
                         className="h-7 w-8 rounded cursor-pointer border border-slate-300 disabled:opacity-40 disabled:cursor-default p-0.5"
                       />
                     </div>
@@ -517,7 +517,7 @@ export function TemplateBuilder() {
                   onCheckedChange={(on) => applyChange(t => {
                     t.meaningConfig = { ...(t.meaningConfig ?? defaultMeaningConfig), showPronunciation: on, pronunciationRatio: on ? 0.18 : 0.0 };
                   })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               {(activeTemplate.meaningConfig?.showPronunciation) && (
@@ -527,14 +527,14 @@ export function TemplateBuilder() {
                     <Input type="number" min={8} max={24}
                       value={activeTemplate.meaningConfig?.pronunciationFontPx ?? 14}
                       onChange={(e) => applyChange(t => { t.meaningConfig!.pronunciationFontPx = +e.target.value; })}
-                      disabled={isBuiltIn} />
+                      disabled={isBuiltIn || undefined} />
                   </div>
                   <div>
                     <Label className="text-xs">ব্যান্ড অনুপাত (0–0.25)</Label>
                     <Input type="number" min={0.05} max={0.25} step={0.01}
                       value={activeTemplate.meaningConfig?.pronunciationRatio ?? 0.18}
                       onChange={(e) => applyChange(t => { t.meaningConfig!.pronunciationRatio = +e.target.value; })}
-                      disabled={isBuiltIn} />
+                      disabled={isBuiltIn || undefined} />
                   </div>
                 </div>
               )}
@@ -550,7 +550,7 @@ export function TemplateBuilder() {
                   onCheckedChange={(on) => applyChange(t => {
                     t.meaningConfig = { ...(t.meaningConfig ?? defaultMeaningConfig), showMeaning: on, meaningRatio: on ? 0.15 : 0.0 };
                   })}
-                  disabled={isBuiltIn}
+                  disabled={isBuiltIn || undefined}
                 />
               </div>
               {(activeTemplate.meaningConfig?.showMeaning) && (
@@ -560,14 +560,14 @@ export function TemplateBuilder() {
                     <Input type="number" min={8} max={20}
                       value={activeTemplate.meaningConfig?.meaningFontPx ?? 12}
                       onChange={(e) => applyChange(t => { t.meaningConfig!.meaningFontPx = +e.target.value; })}
-                      disabled={isBuiltIn} />
+                      disabled={isBuiltIn || undefined} />
                   </div>
                   <div>
                     <Label className="text-xs">ব্যান্ড অনুপাত (0–0.2)</Label>
                     <Input type="number" min={0.05} max={0.2} step={0.01}
                       value={activeTemplate.meaningConfig?.meaningRatio ?? 0.15}
                       onChange={(e) => applyChange(t => { t.meaningConfig!.meaningRatio = +e.target.value; })}
-                      disabled={isBuiltIn} />
+                      disabled={isBuiltIn || undefined} />
                   </div>
                 </div>
               )}

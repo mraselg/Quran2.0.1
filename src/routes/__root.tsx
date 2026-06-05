@@ -127,12 +127,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 import { ModalProvider } from "@/context/ModalContext";
 import "@/state/cloudStore"; // Initialize cloud sync listeners
+import { ThemeApplier } from "@/components/studio/ThemeApplier";
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeApplier />
       <ModalProvider>
         <Outlet />
       </ModalProvider>

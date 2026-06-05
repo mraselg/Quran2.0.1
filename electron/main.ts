@@ -137,6 +137,36 @@ app.whenReady().then(() => {
       return { success: false, error: e.message };
     }
   });
+
+  // Database History Handlers
+  ipcMain.handle('db:logEvent', async (_, payload: { eventType: string; details: string }) => {
+    try {
+      const { logEvent } = await import('./db.js');
+      return logEvent(payload.eventType, payload.details);
+    } catch (e) {
+      console.error("DB log error:", e);
+      return false;
+    }
+  });
+
+  ipcMain.handle('db:getLogs', async () => {
+    try {
+      const { getHistoryLogs } = await import('./db.js');
+      return getHistoryLogs();
+    } catch (e) {
+      console.error("DB get logs error:", e);
+      return [];
+    }
+  });
+
+  ipcMain.handle('db:clearLogs', async () => {
+    try {
+      const { clearHistoryLogs } = await import('./db.js');
+      return clearHistoryLogs();
+    } catch (e) {
+      return false;
+    }
+  });
 });
 
 app.on('window-all-closed', () => {

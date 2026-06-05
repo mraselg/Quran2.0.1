@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, CheckCircle2, FileDown, FileImage, HelpCircle, Keyboard, Layers, Sparkles, X, Zap } from "lucide-react";
+import { BookOpen, CheckCircle2, FileDown, FileImage, HelpCircle, Keyboard, Layers, Sparkles, X, Zap, History as HistoryIcon, Undo2, Clock } from "lucide-react";
 import { useEditorStore } from "@/state/editorStore";
 import { useHistoryStore } from "@/state/historyStore";
+import { useShallow } from "zustand/react/shallow";
 import { QuickPublishModal } from "./QuickPublishModal";
 import { toast } from "sonner";
 
@@ -154,6 +155,8 @@ export function TopBar({ totalPages, totalAyat }: { totalPages: number; totalAya
 
           <div className="mx-1 h-5 w-px bg-neutral-800" />
 
+          <SessionHistoryDropdown />
+
           <button
             id="btn-export-png"
             onClick={handleExportPNG}
@@ -190,6 +193,15 @@ export function TopBar({ totalPages, totalAyat }: { totalPages: number; totalAya
             className="grid h-7 w-7 place-items-center rounded-lg border border-neutral-800 bg-neutral-900 text-neutral-400 transition-colors hover:border-amber-500/40 hover:bg-amber-500/10 hover:text-amber-300"
           >
             <Zap className="h-3.5 w-3.5" />
+          </button>
+
+          <button
+            onClick={() => window.open("/documentation", "_blank")}
+            className="flex items-center gap-2 px-3 py-1.5 text-[11px] font-medium text-neutral-300 hover:text-white bg-neutral-800/50 hover:bg-neutral-700 rounded-lg transition-colors border border-neutral-700"
+            title="ডকুমেন্টেশন"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">ডকুমেন্টেশন</span>
           </button>
         </div>
       </header>
@@ -287,8 +299,9 @@ function StatBadge({ label, value }: { label: string; value: string }) {
 }
 
 // ── Save control: Save button + chevron dropdown with auto-save toggle ──
-import { ChevronDown, Save } from "lucide-react";
+import { ChevronDown, Save, Cloud, CloudUpload, CloudOff, CloudCog } from "lucide-react";
 import { useOverridesStore } from "@/state/overridesStore";
+import { useCloudStore } from "@/state/cloudStore";
 import { Switch } from "@/components/ui/switch";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -307,13 +320,17 @@ function SaveControl() {
     return () => unsub();
   }, []);
 
-  const doSave = () => {
+  const { saveStatus, syncToCloud } = useCloudStore();
+
+  const doSave = async () => {
     // Zustand persist already writes on each change; this is a confirmation.
     try {
       localStorage.setItem("studio-save-ts", String(Date.now()));
     } catch { /* ignore */ }
     setDirty(false);
-    toast.success("✅ সেভ সম্পন্ন হয়েছে");
+    
+    // Also trigger cloud sync
+    await syncToCloud();
   };
 
   // Auto-save interval
@@ -358,10 +375,19 @@ function SaveControl() {
             <Switch checked={autoSave} onCheckedChange={toggleAuto} />
           </div>
           <DropdownMenuItem onClick={doSave} className="text-xs">
-            📋 ম্যানুয়াল সেভ
+            📋 ম্যানুয়াল সেভ & ক্লাউড সিঙ্ক
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Cloud Status Indicator */}
+      <div className="ml-2 flex items-center justify-center gap-1.5 px-2 py-1 bg-neutral-900 rounded-md border border-neutral-800">
+        {saveStatus === 'saving' && <CloudUpload className="w-3.5 h-3.5 text-sky-400 animate-pulse" title="Saving to Cloud..." />}
+        {saveStatus === 'saved' && <Cloud className="w-3.5 h-3.5 text-emerald-400" title="Saved to Cloud" />}
+        {saveStatus === 'error' && <CloudOff className="w-3.5 h-3.5 text-red-400" title="Cloud Sync Error" />}
+        {saveStatus === 'idle' && <CloudCog className="w-3.5 h-3.5 text-neutral-500" title="Cloud Ready" />}
+      </div>
+
       {autoSave && (
         <span className="ml-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[9px] font-semibold text-emerald-400 ring-1 ring-emerald-500/30">
           অটো সেভ চালু
@@ -370,4 +396,48 @@ function SaveControl() {
     </div>
   );
 }
+
+function SessionHistoryDropdown() {
+  const entries = useHistoryStore(useShallow((s) => s.sessionEntries()));
+  const restoreTo = useHistoryStore((s) => s.restoreTo);
+  
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          title="Session History"
+          className="flex items-center gap-1.5 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-semibold text-neutral-300 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-300"
+        >
+          <HistoryIcon className="h-3.5 w-3.5" />
+          হিস্টোরি
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64 max-h-[400px] overflow-y-auto">
+        <div className="px-3 py-2 border-b border-neutral-800 text-xs font-bold text-neutral-300 flex items-center justify-between">
+          <span>বর্তমান সেশন হিস্টোরি</span>
+          <span className="bg-neutral-800 px-1.5 py-0.5 rounded text-[10px]">{entries.length}</span>
+        </div>
+        {entries.length === 0 ? (
+          <div className="p-4 text-center text-xs text-neutral-500 flex flex-col items-center gap-2">
+            <Clock className="h-5 w-5 opacity-50" />
+            <p>এই সেশনে কোনো পরিবর্তন করা হয়নি</p>
+          </div>
+        ) : (
+          [...entries].reverse().map((entry) => (
+            <DropdownMenuItem key={entry.id} className="flex flex-col items-start gap-1 p-2 cursor-pointer" onClick={() => restoreTo(entry.id)}>
+              <div className="flex w-full items-center justify-between">
+                <span className="font-semibold text-neutral-200">{entry.labelBn || entry.label}</span>
+                <span className="text-[10px] text-neutral-500">{new Date(entry.ts).toLocaleTimeString()}</span>
+              </div>
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400">
+                <Undo2 className="h-3 w-3" /> এই অবস্থায় ফিরে যান
+              </div>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 

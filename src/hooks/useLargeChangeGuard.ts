@@ -41,9 +41,11 @@ export function useLargeChangeGuard(): {
   const [pending, setPending] = useState<Pending | null>(null);
 
   const run = useCallback(async (p: Pending) => {
-    const toastId = toast.loading(p.label || "পরিবর্তন প্রয়োগ হচ্ছে…");
+    const toastId = toast.loading(p.label || "আপডেট হচ্ছে…");
     // Yield once so the UI can paint the toast before sync work.
     await new Promise((r) => requestAnimationFrame(() => r(null)));
+    // Additional brief timeout to ensure React renders the toast component
+    await new Promise((r) => setTimeout(r, 50));
     try {
       await p.action();
       toast.success("পরিবর্তন সম্পন্ন হয়েছে", { id: toastId });
@@ -56,7 +58,7 @@ export function useLargeChangeGuard(): {
   const request = useCallback(
     (opts: GuardOptions) => {
       const threshold = opts.threshold ?? DEFAULT_THRESHOLD;
-      const label = opts.label ?? "পরিবর্তন প্রয়োগ হচ্ছে…";
+      const label = opts.label ?? "আপডেট হচ্ছে…";
       const requiresDialog =
         opts.scope === "surah" ||
         opts.scope === "para" ||
@@ -72,11 +74,8 @@ export function useLargeChangeGuard(): {
       };
 
       if (!requiresDialog) {
-        // Run inline without progress UI for small changes.
-        void Promise.resolve(opts.action()).catch((err) => {
-          console.error("[useLargeChangeGuard] inline action failed", err);
-          toast.error("পরিবর্তন প্রয়োগে ত্রুটি হয়েছে");
-        });
+        // Run immediately but WITH progress UI so the user sees "Updating..."
+        void run(p);
         return;
       }
       setPending(p);

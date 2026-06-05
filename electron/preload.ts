@@ -11,6 +11,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportCustomPDF: (payload: any): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('export:customPDF', payload),
 
+  logEvent: (eventType: string, details: string): Promise<boolean> => 
+    ipcRenderer.invoke('db:logEvent', { eventType, details }),
+
+  getLogs: (): Promise<any[]> => 
+    ipcRenderer.invoke('db:getLogs'),
+
+  clearLogs: (): Promise<boolean> => 
+    ipcRenderer.invoke('db:clearLogs'),
+
   onMenuAction: (callback: (action: string) => void) => {
     ipcRenderer.on('menu-action', (_event, action) => callback(action));
   },

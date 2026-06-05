@@ -60,7 +60,7 @@ export const KARIANA_TEMPLATE: MasterTemplate = {
     banglaFamily: "'Kalpurush', 'Noto Serif Bengali', serif",
     baseArabicY: -15,
     baseBanglaY: 2,
-    baseSymbolY: -7,
+    baseSymbolY: -25,
     defaultArabicY: 0,
     defaultBanglaY: 0,
     defaultSymbolY: 0,

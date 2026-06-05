@@ -22,6 +22,9 @@ import { getVisiblePageId } from "@/lib/editorContext";
 import type { BuildProgress } from "@/state/reflowStore";
 import { useCloudStore } from "@/state/cloudStore";
 
+import { LayoutImpactDialog } from "./LayoutImpactDialog";
+import { useThemeStore } from "@/state/themeStore";
+
 type Stage = "ui" | "ready";
 
 // ── Panel size limits ─────────────────────────────────────────────
@@ -45,6 +48,8 @@ export function Workspace() {
   const [zoom, setZoom] = useState(85);
   const setEditorZoom = useEditorStore((s) => s.setZoom);
   const [stage, setStage] = useState<"ui" | "ready">("ui");
+  const layoutMode = useThemeStore((s) => s.layoutMode);
+  const layoutPadding = layoutMode === "spacious" ? "80px 0" : "40px 0";
 
   // ── Sidebar panel toggle + resize state ───────────────────────
   const [leftOpen, setLeftOpen] = useState(true);
@@ -505,6 +510,7 @@ export function Workspace() {
         </div>
         <Toaster position="bottom-center" theme="dark" richColors />
         <CrossPageReflowDialog />
+
       </>
     );
   }
@@ -568,7 +574,7 @@ export function Workspace() {
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
                         className={`absolute inset-0 overflow-auto text-center ${isSpaceDown ? "cursor-grab" : ""} ${isSpaceDown && isDragging.current ? "cursor-grabbing" : ""}`}
-                        style={{ padding: "40px 0" }}
+                        style={{ padding: layoutPadding }}
                       >
                         <div
                           style={{
@@ -675,6 +681,7 @@ export function Workspace() {
         </BackgroundProvider>
       </FontProvider>
       <Toaster position="bottom-right" theme="dark" richColors />
+
       {/* Background cascade loading overlay */}
       {isReflowing && (
         <div className="pointer-events-none fixed inset-0 z-50 flex items-end justify-center pb-8">

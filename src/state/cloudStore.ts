@@ -8,7 +8,8 @@ type CloudState = {
   isSyncing: boolean;
   lastSyncedAt: Date | null;
   syncError: string | null;
-  syncToCloud: () => Promise<void>;
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  syncToCloud: (isAutoSync?: boolean) => Promise<void>;
   pullFromCloud: () => Promise<void>;
 };
 
@@ -16,40 +17,45 @@ export const useCloudStore = create<CloudState>((set) => ({
   isSyncing: false,
   lastSyncedAt: null,
   syncError: null,
+  saveStatus: 'idle',
 
-  syncToCloud: async () => {
-    set({ isSyncing: true, syncError: null });
+  syncToCloud: async (isAutoSync = false) => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
+        if (isAutoSync) return; // Silent fail for auto-sync
         throw new Error("লগইন না করে ক্লাউডে সেভ করা সম্ভব নয়।");
       }
 
+      set({ isSyncing: true, syncError: null, saveStatus: 'saving' });
+
       const overridesData = useOverridesStore.getState();
       const templateData = useTemplateStore.getState();
+      const activeTemplateId = templateData.activeTemplateId || 'default-template';
 
       const payload = {
         user_id: session.user.id,
-        overrides: {
+        template_id: activeTemplateId,
+        state_payload: {
+          global: overridesData.global,
           local: overridesData.local,
-          scoped: overridesData.scoped,
+          globalSubRuleDx: overridesData.globalSubRuleDx,
         },
-        templates: templateData.templates,
         updated_at: new Date().toISOString(),
       };
 
       // Upsert to user_projects table
       const { error } = await supabase
         .from("user_projects")
-        .upsert(payload, { onConflict: "user_id" });
+        .upsert(payload, { onConflict: "user_id,template_id" });
 
       if (error) throw error;
 
-      set({ lastSyncedAt: new Date(), isSyncing: false });
-      toast.success("ক্লাউডে সফলভাবে সেভ হয়েছে!");
+      set({ lastSyncedAt: new Date(), isSyncing: false, saveStatus: 'saved' });
+      if (!isAutoSync) toast.success("ক্লাউডে সফলভাবে সেভ হয়েছে!");
     } catch (error: any) {
-      set({ isSyncing: false, syncError: error.message });
-      toast.error(error.message);
+      set({ isSyncing: false, syncError: error.message, saveStatus: 'error' });
+      if (!isAutoSync) toast.error(error.message);
     }
   },
 
@@ -61,22 +67,24 @@ export const useCloudStore = create<CloudState>((set) => ({
         throw new Error("লগইন না করে ক্লাউড থেকে ডাটা আনা সম্ভব নয়।");
       }
 
+      const templateData = useTemplateStore.getState();
+      const activeTemplateId = templateData.activeTemplateId || 'default-template';
+
       const { data, error } = await supabase
         .from("user_projects")
         .select("*")
         .eq("user_id", session.user.id)
+        .eq("template_id", activeTemplateId)
         .single();
 
       if (error && error.code !== "PGRST116") throw error; // PGRST116 is not found
 
-      if (data) {
+      if (data && data.state_payload) {
         useOverridesStore.setState({
-          local: data.overrides?.local || {},
-          scoped: data.overrides?.scoped || {},
+          global: data.state_payload.global || {},
+          local: data.state_payload.local || {},
+          globalSubRuleDx: data.state_payload.globalSubRuleDx || {},
         });
-        if (data.templates) {
-          useTemplateStore.setState({ templates: data.templates });
-        }
         toast.success("ক্লাউড থেকে সফলভাবে লোড হয়েছে!");
       }
 
@@ -97,6 +105,6 @@ useOverridesStore.subscribe((state, prevState) => {
   
   clearTimeout(syncTimeout);
   syncTimeout = setTimeout(() => {
-    useCloudStore.getState().syncToCloud().catch(console.error);
+    useCloudStore.getState().syncToCloud(true).catch(console.error);
   }, 10000); // Debounce for 10 seconds
 });

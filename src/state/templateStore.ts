@@ -28,6 +28,9 @@ type TemplateState = {
   duplicateActiveTemplate: (newName: string) => MasterTemplate;
 };
 
+let cachedBase: MasterTemplate | null = null;
+let cachedResult: MasterTemplate | null = null;
+
 export const useTemplateStore = create<TemplateState>()(
   persist(
     (set, get) => ({
@@ -37,6 +40,12 @@ export const useTemplateStore = create<TemplateState>()(
       getActiveTemplate: () => {
         const { templates, activeTemplateId } = get();
         const base = templates.find((t) => t.id === activeTemplateId) ?? KARIANA_TEMPLATE;
+        
+        if (base === cachedBase && cachedResult) {
+          return cachedResult;
+        }
+        
+        cachedBase = base;
         const result = structuredClone(base);
         if (result.meaningConfig) {
           result.bandRatios.pronunciationRatio = result.meaningConfig.showPronunciation
@@ -44,6 +53,7 @@ export const useTemplateStore = create<TemplateState>()(
           result.bandRatios.meaningRatio = result.meaningConfig.showMeaning
             ? result.meaningConfig.meaningRatio : 0;
         }
+        cachedResult = result;
         return result;
       },
 

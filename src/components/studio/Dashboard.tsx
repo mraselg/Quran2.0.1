@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTemplateStore } from "@/state/templateStore";
 import { Button } from "@/components/ui/button";
-import { Plus, LayoutTemplate, Palette, ArrowRight, Settings2, Home, FolderOpen, Search, Sparkles, Bell, User, Clock, LogOut } from "lucide-react";
+import { Plus, LayoutTemplate, Palette, ArrowRight, Settings2, Home, FolderOpen, Search, Sparkles, Bell, User, Clock, LogOut, Settings, HelpCircle } from "lucide-react";
 import { AuthDialog } from "@/components/auth/AuthDialog";
 import { supabase } from "@/lib/supabaseClient";
+import { ThemeSettings } from "@/components/studio/ThemeSettings";
 
 export function Dashboard() {
   const navigate = useNavigate();
@@ -64,6 +65,13 @@ export function Dashboard() {
           <button className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900/50 transition-colors">
             <LayoutTemplate className="w-5 h-5" />
             টেমপ্লেটস
+          </button>
+          <button 
+            onClick={() => navigate({ to: "/documentation" })}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-neutral-400 hover:text-neutral-100 hover:bg-neutral-900/50 transition-colors"
+          >
+            <HelpCircle className="w-5 h-5" />
+            ডকুমেন্টেশন
           </button>
         </nav>
 
@@ -233,6 +241,8 @@ export function Dashboard() {
               })}
             </div>
             
+            <ThemeSettings />
+
           </div>
         </main>
       </div>

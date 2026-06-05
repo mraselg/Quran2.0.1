@@ -13,6 +13,7 @@ import { SlimFooter } from "./SlimFooter";
 import { SlimHeader } from "./SlimHeader";
 import { SurahOpenBlock } from "./SurahOpenBlock";
 import { useTemplateStore } from "@/state/templateStore";
+import { useModal } from "@/context/ModalContext";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -26,6 +27,7 @@ import { getScale, getDisplayH, getGridTopPx, computeGridLayout } from "@/lib/te
 
 export const Artboard = memo(function Artboard({ page, zoom = 1 }: { page: PageData; zoom?: number }) {
   const { activeFamily } = useFont();
+  const { showConfirm } = useModal();
   const isOpen = page.type === "surah-open";
   const tmpl = useTemplateStore((s) => s.getActiveTemplate());
   const linesPerPage = tmpl.linesPerPage;
@@ -337,6 +339,41 @@ export const Artboard = memo(function Artboard({ page, zoom = 1 }: { page: PageD
       }
     }
 
+    if (d.key.startsWith("surah-open:")) {
+      const parts = d.key.split(":");
+      const oldIndex = parseInt(parts[1] || "-1");
+      const boardRect = boardRef.current?.getBoundingClientRect();
+      if (oldIndex !== -1 && boardRect) {
+        const boardY = (e.clientY - boardRect.top) / zoom;
+        let targetIndex = -1;
+        let minDiff = Infinity;
+        
+        for (let i = 0; i < gridLayoutPx.length; i++) {
+           const L = gridLayoutPx[i];
+           if (!L) continue;
+           const rowCenter = gridTopPx + L.sy + (L.symH + L.arH + L.bnH) / 2;
+           const diff = Math.abs(boardY - rowCenter);
+           if (diff < minDiff) {
+              minDiff = diff;
+              targetIndex = i;
+           }
+        }
+
+        const rowH = gridLayoutPx[0]?.symH! + gridLayoutPx[0]?.arH! + gridLayoutPx[0]?.bnH!;
+        if (targetIndex !== -1 && targetIndex !== oldIndex && Math.abs(ddy) > rowH * 0.4) {
+          showConfirm({
+            title: "Flow Text",
+            message: "Flow text up to fill the gap?",
+            confirmText: "Yes",
+            cancelText: "No"
+          }).then((flowTextUp) => {
+            useReflowStore.getState().moveSurahHeader(page.id, oldIndex, targetIndex, flowTextUp);
+          });
+          return;
+        }
+      }
+    }
+
     if (scope === "general") {
       patchLocal(d.key, { dx: d.baseDx + ddx, dy: d.baseDy + ddy });
     } else {
@@ -463,6 +500,8 @@ export const Artboard = memo(function Artboard({ page, zoom = 1 }: { page: PageD
           return (
             <div
               key={`so-${index}`}
+              data-sel-kind="surah-open"
+              data-sel-key={`surah-open:${index}`}
               style={{
                 position: "absolute",
                 left: 0,

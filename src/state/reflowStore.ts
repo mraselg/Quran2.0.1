@@ -53,6 +53,7 @@ type ReflowState = {
   injectPage: (afterPageId: string) => void;
   removePage: (pageId: string) => boolean;
   shiftQuranForward: (fromPageId: string, rowCount: number) => void;
+  moveSurahHeader: (pageId: string, oldSlotIndex: number, newSlotIndex: number, flowTextUp: boolean) => void;
   measurementCache: Map<string, any>;
   setMeasurementCache: (key: string, value: any) => void;
 };
@@ -309,6 +310,31 @@ export const useReflowStore = create<ReflowState>((set, get) => ({
     useOverridesStore.setState({ local: finalLocal });
 
     set({ pages: newPages as any, distribution: computeDistribution(newPages as any) });
+  },
+
+  moveSurahHeader: (pageId, oldSlotIndex, newSlotIndex, flowTextUp) => {
+    const pages = get().pages;
+    const pIdx = pages.findIndex((p) => p.id === pageId);
+    if (pIdx < 0) return;
+    const newPages = [...pages];
+    const page = { ...newPages[pIdx] };
+    const newLines = [...page.lines];
+    
+    const header = newLines[oldSlotIndex];
+    if (!header || header.slotKind !== "surah-open") return;
+
+    if (flowTextUp) {
+      newLines.splice(oldSlotIndex, 1);
+      newLines.splice(newSlotIndex > oldSlotIndex ? newSlotIndex - 1 : newSlotIndex, 0, header);
+    } else {
+      newLines[oldSlotIndex] = { slotKind: "blank", blocks: [] };
+      newLines.splice(newSlotIndex, 0, header);
+      newLines.pop(); // keep length consistent
+    }
+
+    page.lines = newLines;
+    newPages[pIdx] = page;
+    set({ pages: newPages, distribution: computeDistribution(newPages) });
   },
 
   rebuildPage: (pageId: string) => {

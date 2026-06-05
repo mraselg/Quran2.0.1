@@ -6,7 +6,7 @@ import { useEditorStore } from "@/state/editorStore";
 import { beginSilent, endSilent, type HistoryPatch, useHistoryStore } from "@/state/historyStore";
 import { useOverridesStore } from "@/state/overridesStore";
 import { useReflowStore } from "@/state/reflowStore";
-import { reflowLayerText } from "@/lib/textReflow";
+import { reflowLayerText, splitToFitAware, reflowFrom, backFillFrom, reflowFromAsync, backFillFromAsync } from "@/lib/textReflow";
 import { buildStory, storyToRowPatches, getEffectiveStoryRowText, STORY_ROW_SEPARATOR, parseHtmlToStoryPatches, type WordStylePatch } from "@/lib/textStory";
 import { getValidTextSlotsForPages } from "@/lib/rowSlotMapper";
 import type { StoryLayer } from "@/lib/rowSlotMapper";
@@ -27,6 +27,7 @@ export type UnifiedStoryEditorProps = {
   align: React.CSSProperties["textAlign"];
   baseline: number;
   marginTop?: number;
+  holes?: Array<{ y: number; h: number }>;
   onClose: () => void;
 };
 
@@ -42,6 +43,7 @@ export function UnifiedStoryEditor({
   align,
   baseline,
   marginTop = 0,
+  holes = [],
   onClose,
 }: UnifiedStoryEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
@@ -74,7 +76,9 @@ export function UnifiedStoryEditor({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
     el.innerText = initialText;
+
     el.focus();
     const sel = window.getSelection();
     const range = document.createRange();
@@ -113,7 +117,7 @@ export function UnifiedStoryEditor({
       scope,
       estimatedRows: Math.max(1, plan.rowPatches.length),
       label: "স্টোরি কমিট হচ্ছে…",
-      action: () => {
+      action: async () => {
         const store = useOverridesStore.getState();
         const patches: HistoryPatch[] = plan.rowPatches.map((patch) => ({
           field: "text",
@@ -151,20 +155,71 @@ export function UnifiedStoryEditor({
           });
         }
 
-        const lastMapping = plan.story.rowMapping[plan.story.rowMapping.length - 1];
-        if (lastMapping) {
-          reflowLayerText({
-            pageId: lastMapping.pageId,
-            rowIndex: lastMapping.rowIndex,
+        const localMap = store.local;
+        const layerKeyFn = (pid: string, ri: number, lyr: string) => `layer:${pid}:${ri}:${lyr}`;
+        let currentOverflow = "";
+
+        // Sequentially reflow all patched rows to push overflow forward
+        for (const mapping of plan.story.rowMapping) {
+          const lk = layerKeyFn(mapping.pageId, mapping.rowIndex, layer);
+          const existingText = localMap[lk]?.text ?? "";
+          const combined = currentOverflow ? currentOverflow + " " + existingText : existingText;
+
+          const { fits, overflow } = splitToFitAware(
+            combined,
+            width,
+            fontFamily,
+            fontSize,
             layer,
-            reason: "story-commit",
+            mapping.pageId,
+            mapping.rowIndex,
+            localMap,
+            layerKeyFn
+          );
+
+          store.patchLocal(lk, { text: fits });
+          currentOverflow = overflow.trim();
+        }
+
+        // Pass any remaining overflow to reflowFrom to cascade to subsequent pages
+        if (currentOverflow) {
+          const lastMapping = plan.story.rowMapping[plan.story.rowMapping.length - 1];
+          if (lastMapping) {
+            const pages = useReflowStore.getState().pages;
+            await reflowFromAsync({
+              startPageId: lastMapping.pageId,
+              startRowIndex: lastMapping.rowIndex + 1,
+              startOverflow: currentOverflow,
+              layer,
+              allPages: pages,
+              localMap: store.local,
+              patchLocal: store.patchLocal,
+              layerKeyFn,
+              fontFamily,
+              fontSize,
+              availableWidth: width,
+            });
+          }
+        }
+
+        // Pull text backward if gaps were created (e.g., text deleted)
+        const firstMapping = plan.story.rowMapping[0];
+        if (firstMapping) {
+          const pages = useReflowStore.getState().pages;
+          await backFillFromAsync({
+            startPageId: firstMapping.pageId,
+            startRowIndex: firstMapping.rowIndex,
+            layer,
+            allPages: pages,
+            localMap: store.local,
+            patchLocal: store.patchLocal,
+            layerKeyFn,
             fontFamily,
             fontSize,
             availableWidth: width,
-            scope,
           });
         }
-        toast.success("স্টোরি কমিট সম্পন্ন হয়েছে");
+
         onClose();
       },
       onCancel: onClose,
@@ -250,41 +305,118 @@ export function UnifiedStoryEditor({
     }
   };
 
+  // Create the polygon for CSS shape-outside to wrap text around Surah header holes
+  const createPolygon = (holesList: Array<{ y: number; h: number }>, totalHeight: number) => {
+    if (!holesList || holesList.length === 0) return "";
+    let pts: string[] = [];
+    pts.push(`0px 0px`);
+    for (const h of holesList) {
+      // Start of hole
+      pts.push(`0px ${h.y}px`);
+      pts.push(`100% ${h.y}px`);
+      // End of hole
+      pts.push(`100% ${h.y + h.h}px`);
+      pts.push(`0px ${h.y + h.h}px`);
+    }
+    pts.push(`0px ${totalHeight}px`);
+    return `polygon(${pts.join(", ")})`;
+  };
+
+  const polygonPath = createPolygon(holes, height);
+
   return (
     <>
       <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        dir={layer === "arabic" ? "rtl" : "ltr"}
-        lang={layer === "arabic" ? "ar" : "bn"}
-        spellCheck={false}
-        onBlur={commit}
-        onKeyDown={handleKeyDown}
         style={{
           position: "absolute",
-          top: baseline,
+          top: 0,
           left: 8,
           width: width - 16,
           height,
-          fontFamily,
-          fontSize,
-          lineHeight: `${lineHeight}px`,
-          textAlign: align,
-          textAlignLast: align === "justify" ? "justify" : undefined,
-          color: layer === "arabic" ? "#f59e0b" : "#34d399",
-          background: "rgba(0, 0, 0, 0.5)",
-          outline: `2px dashed ${layer === "arabic" ? "#f59e0b" : "#34d399"}`,
-          outlineOffset: "4px",
-          borderRadius: "4px",
           zIndex: 50,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
+          background: "rgba(0, 0, 0, 0.5)",
+          borderRadius: "4px",
           overflow: "hidden",
-          paddingTop: 0,
-          marginTop: `${marginTop}px`,
         }}
-      />
+      >
+        <svg
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: -1
+          }}
+        >
+          {(() => {
+            const regions = [];
+            let currentY = 0;
+            for (const h of holes) {
+              if (h.y > currentY) {
+                regions.push({ y: currentY, h: h.y - currentY });
+              }
+              currentY = h.y + h.h;
+            }
+            if (height > currentY) {
+              regions.push({ y: currentY, h: height - currentY });
+            }
+            return regions.map((r, i) => (
+              <rect
+                key={i}
+                x="2"
+                y={r.y + 2}
+                width={width - 16 - 4}
+                height={r.h - 4}
+                fill="none"
+                stroke={layer === "arabic" ? "#f59e0b" : "#34d399"}
+                strokeWidth="2"
+                strokeDasharray="4 4"
+                rx="4"
+              />
+            ));
+          })()}
+        </svg>
+        {polygonPath && (
+          <div 
+            className="polygon-hole-maker"
+            style={{
+              float: layer === "arabic" ? "right" : "left", 
+              width: "100%", 
+              height: "100%", 
+              shapeOutside: polygonPath,
+              pointerEvents: "none",
+              userSelect: "none",
+            }}
+          />
+        )}
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          dir={layer === "arabic" ? "rtl" : "ltr"}
+          lang={layer === "arabic" ? "ar" : "bn"}
+          spellCheck={false}
+          onBlur={commit}
+          onKeyDown={handleKeyDown}
+          style={{
+            width: "100%",
+            height: "100%",
+            fontFamily,
+            fontSize,
+            lineHeight: `${lineHeight}px`,
+            textAlign: align,
+            textAlignLast: align === "justify" ? "justify" : undefined,
+            color: layer === "arabic" ? "#f59e0b" : "#34d399",
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+            paddingTop: 0,
+            marginTop: `${marginTop}px`,
+            outline: "none"
+          }}
+        />
+      </div>
       <div
         className="absolute left-2 top-2 z-[51] rounded px-2 py-1 text-[10px] font-bold"
         style={{ background: layer === "arabic" ? "#f59e0b" : "#34d399", color: "#111827" }}

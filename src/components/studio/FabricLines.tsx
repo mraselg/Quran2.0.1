@@ -147,6 +147,12 @@ export const FabricLines = memo(function FabricLines({
         const bnNormalPaddingTop = 1;
         const bnMarginTop = bnNormalPaddingTop + (bnNormalLineHeight - rowSpacing) / 2;
 
+        // Calculate holes for skipped slots (Surah Headers) to enable CSS shape-outside
+        const holes = Array.from(skipSet).map(idx => ({
+          y: idx * rowSpacing,
+          h: rowSpacing
+        }));
+
         return (
           <>
             {isUnifiedArabicEditing && (
@@ -162,6 +168,7 @@ export const FabricLines = memo(function FabricLines({
                 marginTop={arMarginTop}
                 align="justify"
                 baseline={layout.find(l => !skipSet.has(layout.indexOf(l)))?.ay ?? 0}
+                holes={holes}
                 onClose={() => useEditorStore.getState().setActiveTool("select")}
               />
             )}
@@ -179,6 +186,7 @@ export const FabricLines = memo(function FabricLines({
                 marginTop={bnMarginTop}
                 align="justify"
                 baseline={layout.find(l => !skipSet.has(layout.indexOf(l)))?.by ?? 0}
+                holes={holes}
                 onClose={() => useEditorStore.getState().setActiveTool("select")}
               />
             )}

@@ -14,6 +14,7 @@ import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as TemplateBuilderRouteImport } from './routes/template-builder'
 import { Route as PrintPreviewRouteImport } from './routes/print-preview'
 import { Route as EditorRouteImport } from './routes/editor'
+import { Route as DocumentationRouteImport } from './routes/documentation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -42,6 +43,11 @@ const EditorRoute = EditorRouteImport.update({
   path: '/editor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocumentationRoute = DocumentationRouteImport.update({
+  id: '/documentation',
+  path: '/documentation',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -56,6 +62,7 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/documentation': typeof DocumentationRoute
   '/editor': typeof EditorRoute
   '/print-preview': typeof PrintPreviewRoute
   '/template-builder': typeof TemplateBuilderRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/documentation': typeof DocumentationRoute
   '/editor': typeof EditorRoute
   '/print-preview': typeof PrintPreviewRoute
   '/template-builder': typeof TemplateBuilderRoute
@@ -75,6 +83,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/documentation': typeof DocumentationRoute
   '/editor': typeof EditorRoute
   '/print-preview': typeof PrintPreviewRoute
   '/template-builder': typeof TemplateBuilderRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/documentation'
     | '/editor'
     | '/print-preview'
     | '/template-builder'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/documentation'
     | '/editor'
     | '/print-preview'
     | '/template-builder'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/documentation'
     | '/editor'
     | '/print-preview'
     | '/template-builder'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DocumentationRoute: typeof DocumentationRoute
   EditorRoute: typeof EditorRoute
   PrintPreviewRoute: typeof PrintPreviewRoute
   TemplateBuilderRoute: typeof TemplateBuilderRoute
@@ -159,6 +172,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EditorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/documentation': {
+      id: '/documentation'
+      path: '/documentation'
+      fullPath: '/documentation'
+      preLoaderRoute: typeof DocumentationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DocumentationRoute: DocumentationRoute,
   EditorRoute: EditorRoute,
   PrintPreviewRoute: PrintPreviewRoute,
   TemplateBuilderRoute: TemplateBuilderRoute,

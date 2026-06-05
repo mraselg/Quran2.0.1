@@ -112,7 +112,7 @@ export function findPrevValidRow(pi: number, ri: number, pages: any[], layer: La
   return null;
 }
 
-function splitToFitAware(
+export function splitToFitAware(
   text: string,
   availableWidth: number,
   fontFamily: string,
@@ -340,8 +340,10 @@ export async function reflowFromAsync(opts: ReflowOptions): Promise<void> {
     if (startPageIdx === -1) return;
 
     for (let pi = startPageIdx; pi < targetPages.length && overflow !== ""; pi++) {
-      // Yield to browser between page chunks
+      // Yield to browser between page chunks and report progress
       if ((pi - startPageIdx) % PAGES_PER_CHUNK === 0 && pi > startPageIdx) {
+        const pct = Math.min(99, Math.round(((pi - startPageIdx) / Math.max(1, targetPages.length - startPageIdx)) * 100));
+        useReflowStore.setState({ buildProgress: { label: "আপডেট হচ্ছে…", pct } });
         await new Promise<void>((r) => setTimeout(r, 0));
       }
 
@@ -393,6 +395,7 @@ export async function reflowFromAsync(opts: ReflowOptions): Promise<void> {
     }
   } finally {
     useReflowStore.getState().setIsReflowing(false);
+    useReflowStore.setState({ buildProgress: null });
   }
 }
 
@@ -636,6 +639,8 @@ export async function backFillFromAsync(opts: BackFillOptions): Promise<void> {
 
     while (iter++ < maxIterations) {
       if (iter % PAGES_PER_CHUNK === 0) {
+        const pct = Math.min(99, Math.round((iter / maxIterations) * 100));
+        useReflowStore.setState({ buildProgress: { label: "আপডেট হচ্ছে…", pct } });
         await new Promise<void>((r) => setTimeout(r, 0));
       }
 
@@ -675,6 +680,7 @@ export async function backFillFromAsync(opts: BackFillOptions): Promise<void> {
     }
   } finally {
     useReflowStore.getState().setIsReflowing(false);
+    useReflowStore.setState({ buildProgress: null });
   }
 }
 

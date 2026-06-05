@@ -140,9 +140,6 @@ export function PropertiesPanel() {
         <SubLayerPanel pageId={selection.pageId} rowIndex={selection.rowIndex} scope={scope} />
       )}
 
-      {/* ── Linking Panel ── */}
-      {selection && (selection.kind === "row" || selection.kind === "layer") && <LinkingPanel />}
-
       {/* ── Character & Paragraph Panel (Type Tool only) ── */}
       {isTypeTool && isLayerSel && selection && (
         <CharacterPanel selKey={selection.key} applyTypography={applyTypography} />
@@ -158,7 +155,7 @@ export function PropertiesPanel() {
       </div>
 
       {/* ── Scope Selector ── */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" data-tour="scope-panel">
         <div className="text-[10px] font-semibold uppercase tracking-wider text-neutral-500">
           প্রয়োগ স্তর
         </div>
@@ -319,6 +316,8 @@ function ControlsTab({
       </Group>
 
       <div className="h-px bg-neutral-800/50" />
+      <LinkingPanel />
+      <div className="h-px bg-neutral-800/50" />
 
       <Group title="ইতিহাস" icon={RotateIcon} color={color}>
         <ResetGroup />
@@ -336,111 +335,171 @@ function HistoryTab() {
   const reversed = [...entries].reverse();
   const [open, setOpen] = useState(false);
 
+  const [activeTab, setActiveTab] = useState<"session" | "permanent">("session");
+  const [dbLogs, setDbLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (activeTab === "permanent" && window.electronAPI?.getLogs) {
+      window.electronAPI.getLogs().then(setDbLogs);
+    }
+  }, [activeTab]);
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between pb-2 border-b border-neutral-800">
-        <span className="text-[10px] font-semibold text-neutral-400">
-          {entries.length} ধাপ রেকর্ড হয়েছে
-        </span>
-        {entries.length > 0 && (
-          <>
-            <button
-              onClick={() => setOpen(true)}
-              className="text-[10px] font-medium text-red-500/60 hover:text-red-400"
-            >
-              সব মুছুন
-            </button>
-            <AlertDialog open={open} onOpenChange={setOpen}>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>সব ইতিহাস মুছবেন?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    আপনি কি সব ইতিহাস মুছতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>বাতিল</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => {
-                      clear();
-                      markSessionStart();
-                    }}
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    হ্যাঁ, মুছুন
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </>
-        )}
+      <div className="flex bg-neutral-900 rounded border border-neutral-800 p-0.5">
+        <button
+          onClick={() => setActiveTab("session")}
+          className={`flex-1 rounded py-1.5 text-[10px] font-semibold transition-all ${
+            activeTab === "session"
+              ? "bg-neutral-800 text-neutral-200 shadow-sm"
+              : "text-neutral-500 hover:text-neutral-300"
+          }`}
+        >
+          সেশন ইতিহাস
+        </button>
+        <button
+          onClick={() => setActiveTab("permanent")}
+          className={`flex-1 rounded py-1.5 text-[10px] font-semibold transition-all ${
+            activeTab === "permanent"
+              ? "bg-neutral-800 text-neutral-200 shadow-sm"
+              : "text-neutral-500 hover:text-neutral-300"
+          }`}
+        >
+          স্থায়ী ইতিহাস
+        </button>
       </div>
-      {reversed.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 text-neutral-600 text-[11px] text-center">
-          <ClockIcon className="h-6 w-6 mb-2 opacity-30" />
-          কোনো পরিবর্তন নেই।
-          <br />
-          এডিট মোডে কিছু পরিবর্তন করুন।
-        </div>
-      ) : (
-        <div className="flex flex-col gap-1.5">
-          {reversed.map((entry) => {
-            const m = SCOPE_META[entry.scope] ?? SCOPE_META.global;
-            const goToEntry = () => {
-              if (!entry.pageId) return;
-              const rk =
-                entry.layerKey ??
-                (entry.rowIndex !== undefined
-                  ? `row:${entry.pageId}:${entry.rowIndex}`
-                  : undefined);
-              navigateTo(entry.pageId, rk);
-            };
 
-            return (
-              <div
-                key={entry.id}
-                role="button"
-                tabIndex={0}
-                onClick={goToEntry}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    goToEntry();
-                  }
-                }}
-                className="flex flex-col gap-1 rounded bg-neutral-900/50 p-2 group hover:bg-neutral-800 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span
-                    className="rounded-sm px-1.5 py-0.5 text-[9px] font-bold"
-                    style={{ background: `${m.color}20`, color: m.color }}
-                  >
-                    {m.labelBn}
-                  </span>
-                  <div className="flex items-center gap-1.5">
-                    {entry.scopeLabel && (
-                      <span className="rounded-sm bg-neutral-800 px-1.5 py-0.5 text-[9px] text-neutral-400">
-                        {entry.scopeLabel}
-                      </span>
-                    )}
-                    <span className="text-[9px] text-neutral-500">{relativeTime(entry.ts)}</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-neutral-300 truncate">{entry.labelBn}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      restoreTo(entry.id);
+      {activeTab === "session" ? (
+        <>
+          <div className="flex items-center justify-between pb-2 border-b border-neutral-800 mt-2">
+            <span className="text-[10px] font-semibold text-neutral-400">
+              {entries.length} ধাপ রেকর্ড হয়েছে
+            </span>
+            {entries.length > 0 && (
+              <>
+                <button
+                  onClick={() => setOpen(true)}
+                  className="text-[10px] font-medium text-red-500/60 hover:text-red-400"
+                >
+                  সব মুছুন
+                </button>
+                <AlertDialog open={open} onOpenChange={setOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>সব ইতিহাস মুছবেন?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        আপনি কি সব ইতিহাস মুছতে চান? এই কাজটি পূর্বাবস্থায় ফেরানো যাবে না।
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>বাতিল</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          clear();
+                          markSessionStart();
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        হ্যাঁ, মুছুন
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </div>
+          {reversed.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-neutral-600 text-[11px] text-center">
+              <ClockIcon className="h-6 w-6 mb-2 opacity-30" />
+              কোনো পরিবর্তন নেই।
+              <br />
+              এডিট মোডে কিছু পরিবর্তন করুন।
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              {reversed.map((entry) => {
+                const m = SCOPE_META[entry.scope] ?? SCOPE_META.global;
+                const goToEntry = () => {
+                  if (!entry.pageId) return;
+                  const rk =
+                    entry.layerKey ??
+                    (entry.rowIndex !== undefined
+                      ? `row:${entry.pageId}:${entry.rowIndex}`
+                      : undefined);
+                  navigateTo(entry.pageId, rk);
+                };
+
+                return (
+                  <div
+                    key={entry.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={goToEntry}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        goToEntry();
+                      }
                     }}
-                    className="shrink-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-[9px] text-neutral-400 opacity-0 group-hover:opacity-100 hover:border-amber-500/40 hover:text-amber-300 transition-all"
+                    className="flex flex-col gap-1 rounded bg-neutral-900/50 p-2 group hover:bg-neutral-800 transition-colors cursor-pointer"
                   >
-                    পুনরুদ্ধার
-                  </button>
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className="rounded-sm px-1.5 py-0.5 text-[9px] font-bold"
+                        style={{ background: `${m.color}20`, color: m.color }}
+                      >
+                        {m.labelBn}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {entry.scopeLabel && (
+                          <span className="rounded-sm bg-neutral-800 px-1.5 py-0.5 text-[9px] text-neutral-400">
+                            {entry.scopeLabel}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-neutral-500">{relativeTime(entry.ts)}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-neutral-300 truncate">{entry.labelBn}</span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          restoreTo(entry.id);
+                        }}
+                        className="shrink-0 rounded border border-neutral-700 bg-neutral-950 px-2 py-0.5 text-[9px] text-neutral-400 opacity-0 group-hover:opacity-100 hover:border-amber-500/40 hover:text-amber-300 transition-all"
+                      >
+                        পুনরুদ্ধার
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="flex flex-col gap-1.5 mt-2">
+          {dbLogs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-neutral-600 text-[11px] text-center">
+              <ClockIcon className="h-6 w-6 mb-2 opacity-30" />
+              কোনো স্থায়ী লগ নেই।
+            </div>
+          ) : (
+            dbLogs.map((log) => (
+              <div
+                key={log.id}
+                className="flex flex-col gap-1 rounded bg-neutral-900/50 p-2 border border-neutral-800"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-500/80">{log.event_type}</span>
+                  <span className="text-[9px] text-neutral-500">
+                    {new Date(log.timestamp).toLocaleString("bn-BD")}
+                  </span>
                 </div>
+                <span className="text-[10px] text-neutral-400 break-words">{log.details}</span>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       )}
     </div>
@@ -783,7 +842,7 @@ function SubLayerPanel({
   const [active, setActive] = useState<SubLayer>("arabic");
   const link = useLinkingStore();
   const key = layerKey(pageId, rowIndex, active);
-  const overrides = useOverridesStore((s) => s.local[key] ?? {});
+  const overrides = useOverridesStore((s) => s.local[key]) ?? {};
   const dy = overrides.dy ?? 0;
   const dx = overrides.dx ?? 0;
 

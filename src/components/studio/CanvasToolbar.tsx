@@ -158,6 +158,7 @@ export function CanvasToolbar({
         {editMode ? (
         <div className="flex items-center gap-1">
           <button
+            data-tour="select-tool"
             onClick={() => setActiveTool("select")}
             title="Selection Tool (V)"
             className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-all ${
@@ -169,6 +170,7 @@ export function CanvasToolbar({
             <MousePointer2 className="h-3 w-3" />V
           </button>
           <button
+            data-tour="type-tool"
             onClick={() => setActiveTool("type")}
             title="Type Tool (T)"
             className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-all ${
@@ -220,7 +222,7 @@ export function CanvasToolbar({
       {/* ── Center ── */}
       <div className="flex items-center gap-4">
         {editMode && (
-          <div className="flex items-center gap-1 border-r border-neutral-800 pr-4">
+          <div data-tour="scope-panel" className="flex items-center gap-1 border-r border-neutral-800 pr-4">
             <span className="mr-1 text-[10px] uppercase tracking-wider text-neutral-600">প্রয়োগ</span>
             {SCOPES.map((s) => (
               <button
@@ -379,6 +381,7 @@ export function CanvasToolbar({
         {/* Right sidebar toggle */}
         {onToggleRight && (
           <button
+            data-tour="layer-panel"
             onClick={onToggleRight}
             title={rightOpen ? "প্যানেল লুকান" : "প্যানেল দেখান"}
             className={`ml-1 grid h-7 w-7 place-items-center rounded-md border transition-colors ${

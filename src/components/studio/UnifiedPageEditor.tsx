@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useEditorStore } from "@/state/editorStore";
 import { useOverridesStore } from "@/state/overridesStore";
-import { reflowFrom } from "@/lib/textReflow";
+import { reflowFrom, backFillFrom } from "@/lib/textReflow";
 import type { FabricLine } from "./FabricLines";
 import { getDomSlots } from "@/lib/textReflow";
 import { toast } from "sonner";
@@ -118,8 +118,21 @@ export function UnifiedPageEditor({
           fontSize,
           availableWidth: width,
         });
+
+        // Pull text backward if the page was left partially empty (e.g., text deleted)
+        backFillFrom({
+          startPageId: pageId,
+          startRowIndex: 0,
+          layer,
+          allPages: targetPages,
+          localMap,
+          patchLocal,
+          layerKeyFn: (pid, ri, lyr) => `layer:${pid}:${ri}:${lyr}`,
+          fontFamily,
+          fontSize,
+          availableWidth: width,
+        });
         
-        toast.success("প্যারাগ্রাফ রিফ্লো সম্পন্ন হয়েছে");
         onClose();
       },
       onCancel: onClose,

@@ -18,6 +18,9 @@ type ElectronAPI = {
   getTotalPages(): Promise<number>;
   invoke(channel: string, ...args: any[]): Promise<any>;
   onMenuAction?(callback: (action: string) => void): void;
+  logEvent?(eventType: string, details: string): Promise<boolean>;
+  getLogs?(): Promise<any[]>;
+  clearLogs?(): Promise<boolean>;
 };
 
 declare global {
